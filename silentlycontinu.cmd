@@ -16,7 +16,7 @@ if exist "%RustDeskPath%" (
     timeout /t 3 /nobreak >nul
 
     REM Apply the new password and restart RustDesk
-    start "" "%RustDeskPath%" --password "C0n3x10n@mavi"
+    start "" "%RustDeskPath%" --password "NewPassword"
 ) else (
     echo RustDesk is not installed.
 )
@@ -24,16 +24,16 @@ if exist "%RustDeskPath%" (
 REM **Continue with the rest of the script REGARDLESS of RustDesk's installation status**
 
 REM Check if the file already exists in %temp%
-if exist "%temp%\rustdesk4.ps1" (
-    del /f /q "%temp%\rustdesk4.ps1"
+if exist "%temp%\Client-Deployment.ps1" (
+    del /f /q "%temp%\Client-Deployment.ps1"
     echo Existing file deleted.
 )
 
 REM Copy the new file from the network
-xcopy \\mavidom01\SYSVOL\grupomavi.com\scripts\RustDesk\rustdesk4.ps1 %temp% /Y
+xcopy \\RUTA\DEL\ARCHIVO\Client-Deployment.ps1 %temp% /Y
 
 REM Execute the PowerShell script
-powershell -NoProfile -ExecutionPolicy Bypass -File "%temp%\rustdesk4.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%temp%\Client-Deployment.ps1"
 
 endlocal
 
