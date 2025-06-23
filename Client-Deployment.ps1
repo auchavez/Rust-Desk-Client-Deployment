@@ -1,91 +1,126 @@
-$ErrorActionPreference = 'SilentlyContinue'
+# ============================================================
+# RustDesk Client Setup Script (Sanitized & Public Safe)
+# ------------------------------------------------------------
+# Installs RustDesk silently, applies custom server config,
+# sets access password, and validates via logs.
+# ============================================================
 
-# Path to the log file
-$logFile = "C:\Temp\rustdesk_install.log"
+$ErrorActionPreference = 'Stop'
 
-# Function to write to the log file
+# === Logging ===
+$logFile = "C:\Temp\rustdesk_combined.log"
 function Write-Log {
-    param([string]$message)
-    $timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-    "$timestamp - $message" | Out-File -Append -FilePath $logFile
+    param([string]$msg)
+    $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    "$ts - $msg" | Out-File -Append -FilePath $logFile
 }
 
-# Predefined password
-$rustdesk_pw2 = 'PASSWORD'
+# === General Variables ===
+$installerPath     = "C:\Temp\rustdesk.exe"
+$downloadUrl       = "https://github.com/rustdesk/rustdesk/releases/download/1.4.0/rustdesk-1.4.0-x86_64.exe"
+$exePath           = "C:\Program Files\RustDesk\rustdesk.exe"
+$logDir            = "$env:APPDATA\RustDesk\log"
 
-# Custom RustDesk configuration
-$rustdesk_cfg = "rendezvous_server = 'DOMAIN/IP:21116' `nnat_type = 1`nserial = 0`n`n[options]`ncustom-rendezvous-server = 'DOMAIN/IP'`nkey = 'PUBLICKEY'`nwhitelist = '1.1.1.1,2.2.2.2,3.3.0.0/16'`ndirect-server = 'Y'`ndirect-access-port = '21118'"
+# === Custom Configuration ===
+$rendezvousAddress = "your.domain.com"
+$relayPort         = "21116"
+$publicKey         = "REPLACE_ME_PUBLIC_KEY"
+$passwordPlain     = "REPLACE_ME_PASSWORD"
 
-# Log the start of the script
-Write-Log "Starting script execution."
+$userTomlPath   = "C:\Users\$env:USERNAME\AppData\Roaming\RustDesk\config\RustDesk2.toml"
+$svcTomlPath    = "C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config\RustDesk2.toml"
 
-# Run as administrator if not already
-if (-Not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
-{
-    Write-Log "Not running with administrator privileges. Attempting to run as administrator."
-    Start-Process PowerShell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"cd '$pwd'; & '$PSCommandPath';`""; 
-    Exit;
+# === Configuration Template ===
+$tomlContent = @"
+rendezvous_server = '$rendezvousAddress:$relayPort'
+nat_type = 1
+serial = 0
+
+[options]
+custom-rendezvous-server = '$rendezvousAddress'
+key = '$publicKey'
+whitelist = '192.168.1.1,10.0.0.1,172.16.0.0/16'
+direct-server = 'Y'
+direct-access-port = '21118'
+"@
+
+# === Ensure Admin Privileges ===
+if (-not ([Security.Principal.WindowsPrincipal] `
+    [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Error "❌ This script must be run as Administrator."
+    exit 1
 }
 
-# Check the installed version of RustDesk
-$rdver = ((Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\RustDesk\").Version)
+# === Create Temp Directory ===
+if (-not (Test-Path "C:\Temp")) {
+    New-Item -Path "C:\Temp" -ItemType Directory -Force | Out-Null
+}
+Write-Log "Temp directory ready."
 
-# Check if the latest version is already installed
-if ($rdver -eq "1.3.7")
-{
-    Write-Log "RustDesk $rdver is the latest version."
-    Exit
+# === Download and Install RustDesk ===
+Write-Log "Downloading RustDesk..."
+Invoke-WebRequest -Uri $downloadUrl -OutFile $installerPath
+Write-Log "Download complete."
+
+Write-Log "Installing RustDesk silently..."
+Start-Process $installerPath -ArgumentList "--silent-install" -Wait
+Start-Sleep -Seconds 5
+Write-Log "Installation complete."
+
+# === Stop Service or Process ===
+$service = Get-Service | Where-Object { $_.Name -match 'rustdesk' } -ErrorAction SilentlyContinue
+if ($service) {
+    Write-Log "Stopping RustDesk service..."
+    Stop-Service $service.Name -Force
+} else {
+    Write-Log "Killing RustDesk process..."
+    Get-Process rustdesk -ErrorAction SilentlyContinue | Stop-Process -Force
+}
+Start-Sleep -Seconds 3
+
+# === Apply Configuration ===
+foreach ($path in @($userTomlPath, $svcTomlPath)) {
+    $dir = Split-Path $path
+    if (-not (Test-Path $dir)) { New-Item $dir -ItemType Directory -Force | Out-Null }
+    Set-Content -Path $path -Value $tomlContent -Encoding UTF8
+    Write-Log "Config written to $path."
 }
 
-# Create a temporary directory if it doesn't exist
-if (!(Test-Path C:\Temp))
-{
-    New-Item -ItemType Directory -Force -Path C:\Temp > $null
+# === Start RustDesk Again ===
+if ($service) {
+    Write-Log "Starting service..."
+    Start-Service $service.Name
+} else {
+    Write-Log "Starting process..."
+    Start-Process -FilePath $exePath
+}
+Start-Sleep -Seconds 5
+
+# === Set Password Securely ===
+Write-Log "Setting access password..."
+Start-Process -FilePath $exePath -ArgumentList "--password '$passwordPlain'" -Wait
+Start-Sleep -Seconds 5
+
+# === Log Validation ===
+if (Test-Path $logDir) {
+    $recentLogs = Get-ChildItem $logDir -Filter *.log | Sort LastWriteTime -Descending | Select -First 3
+    $confirmed = $false
+    foreach ($log in $recentLogs) {
+        if (Select-String -Path $log.FullName -Pattern 'password') {
+            Write-Log "✅ Password activity found in $($log.Name)"
+            Write-Output "✅ Password set successfully (confirmed in log)."
+            $confirmed = $true
+            break
+        }
+    }
+    if (-not $confirmed) {
+        Write-Log "⚠️ Password not confirmed in logs."
+        Write-Output "⚠️ Could not confirm password in log."
+    }
+} else {
+    Write-Log "⚠️ RustDesk log directory not found."
+    Write-Output "⚠️ Log directory missing."
 }
 
-cd C:\Temp
-
-# Download the installer file
-Write-Log "Downloading RustDesk version 1.3.7."
-Invoke-WebRequest "https://github.com/rustdesk/rustdesk/releases/download/1.3.7/rustdesk-1.3.7-x86_64.exe" -Outfile "rustdesk.exe"
-
-# Install RustDesk silently
-Write-Log "Starting RustDesk installation."
-Start-Process .\rustdesk.exe --silent-install
-Start-Sleep -seconds 20
-
-# Stop RustDesk service before applying configuration
-Write-Log "Stopping RustDesk service..."
-net stop rustdesk
-
-# Get the current username
-$username = ((Get-WMIObject -ClassName Win32_ComputerSystem).Username).Split('\')[1]
-
-# Remove the previous configuration file and create a new one for the user
-$UserConfigPath = "C:\Users\$username\AppData\Roaming\RustDesk\config\RustDesk2.toml"
-Remove-Item $UserConfigPath -ErrorAction SilentlyContinue
-New-Item $UserConfigPath -Force
-Set-Content $UserConfigPath $rustdesk_cfg
-
-# Remove the previous configuration file for the local service and create a new one
-$LocalServiceConfigPath = "C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config\RustDesk2.toml"
-Remove-Item $LocalServiceConfigPath -ErrorAction SilentlyContinue
-New-Item $LocalServiceConfigPath -Force
-Set-Content $LocalServiceConfigPath $rustdesk_cfg
-
-# Restart RustDesk service
-Write-Log "Starting RustDesk service..."
-net start rustdesk
-
-Write-Log "RustDesk configured successfully."
-# Set the password
-Write-Log "Setting password."
-Start-Process -FilePath ".\rustdesk.exe" -ArgumentList "--password "$rustdesk_pw2"" -Wait
-Start-Sleep -seconds 20
-Write-Log "Password: $rustdesk_pw2"
-
-Write-Output "..............................................."
-Write-Output "RustDesk configured successfully."
-Write-Output "..............................................."
-
-
+Write-Log "✅ Script finished."
+Write-Output "✅ RustDesk installation and configuration completed."
