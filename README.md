@@ -28,7 +28,7 @@ Automate the installation and configuration of RustDesk clients with this unifie
 
 ## 📄 Included Files
 
-- `RustdeskFinal.ps1`: Main PowerShell script for installation, configuration, and password setup.
+- `Client-Deployment.ps1`: Main PowerShell script for installation, configuration, and password setup.
 
 > ⚠️ **Note**: The previous fallback `silentlycontinu.cmd` is no longer required and has been removed.
 
