@@ -1,57 +1,64 @@
-# **Client Deployment Using PowerShell**
+# RustDesk Client Deployment Using PowerShell
 
-Automate the deployment and configuration of **RustDesk clients** with this PowerShell-based solution. This script is ideal for environments requiring remote access management with custom server configurations and fallback mechanisms.
-
----
-
-## **🎯 Features**
-- **Automated Installation**: Downloads and installs the latest RustDesk client silently.
-- **Custom Configuration**: Prepares the client to connect to your own rendezvous and relay servers.
-- **Predefined Passwords**: Automatically sets a secure password for remote access.
-- **Version Control**: Skips reinstallation if the desired version is already installed.
-- **Fallback Mechanism**: Includes a `silentlycontinu.cmd` file to ensure compatibility with environments where PowerShell scripts cannot be executed directly.
-- **Detailed Logs**: Generates log files for tracking the installation process.
+Automate the installation and configuration of RustDesk clients with this unified PowerShell script. This solution is ideal for environments requiring remote access, custom server configuration, and secure password provisioning.
 
 ---
 
-## **🚀 How It Works**
-1. **Version Check**: Determines if the installed version matches the desired version (`1.3.7`). If it does, the script exits to avoid redundant installations.
-2. **Silent Installation**: Downloads and installs RustDesk in the background if an update is required.
-3. **Server Configuration**: Configures the client to use your custom rendezvous and relay servers.
-4. **Password Setup**: Automatically applies a predefined secure password for remote connections.
-5. **Fallback Support**: Copies the included `silentlycontinu.cmd` file to the `%temp%` directory and executes it if `.ps1` files are restricted.
+## 🎯 Features
+
+- **Automated Installation**: Downloads and silently installs the desired RustDesk version.
+- **Custom Configuration**: Applies a predefined `RustDesk2.toml` with your rendezvous and relay server settings.
+- **Secure Password Setup**: Automatically sets a remote access password using the `--password` parameter.
+- **Version Check**: Skips installation if the correct version is already installed.
+- **Log-Based Validation**: Confirms configuration success by parsing RustDesk logs.
+- **Executable Option**: The script can be compiled into a `.exe` using tools like [PS2EXE](https://www.powershellgallery.com/packages/ps2exe).
 
 ---
 
-## **📄 Included Files**
-- **`rustdesk_deployment.ps1`**: The main PowerShell script for automating installation and configuration.
-- **`silentlycontinu.cmd`**: A fallback CMD file to ensure execution in restricted environments.
+## 🚀 How It Works
+
+1. **Admin Check**: If not run as administrator, the script will prompt for elevation.
+2. **Version Detection**: Skips installation if the current version matches the target.
+3. **Silent Install**: Downloads and installs RustDesk without user interaction.
+4. **Configuration Setup**: Writes the configuration file to both user and service paths.
+5. **Password Assignment**: Uses `--password '$variable'` (correctly quoted) to apply access credentials.
+6. **Validation via Logs**: Reviews recent logs to confirm that the password and configuration were applied.
 
 ---
 
-## **📋 Requirements**
-- Windows with PowerShell 5.1 or higher.
+## 📄 Included Files
+
+- `RustdeskFinal.ps1`: Main PowerShell script for installation, configuration, and password setup.
+
+> ⚠️ **Note**: The previous fallback `silentlycontinu.cmd` is no longer required and has been removed.
+
+---
+
+## 📋 Requirements
+
+- Windows with PowerShell 5.1 or newer.
 - Administrator privileges.
 - Internet access to download the RustDesk installer.
-- Access to custom rendezvous and relay servers.
+- Access to your custom rendezvous and relay server.
 
 ---
 
-## **📜 Change Log**
-### **March 25, 2025**
-- **Hotfix Applied**: Added `--password` parameter to enforce password setup upon execution.
-- **Improved Compatibility**: Ensured the script runs even if RustDesk is already installed.
-- **Bug Fixes**: Addressed an issue where the script would exit prematurely in some environments.
+## 📜 Change Log
+
+**June 23, 2025**
+- ✅ Script fully rewritten and unified.
+- 🛠️ Fixed quoting issue in the `--password` parameter (line 83 resolved).
+- 🧹 Removed the `.cmd` fallback (no longer needed).
+- 🧪 Successfully tested using both `.ps1` and compiled `.exe`.
 
 ---
 
-## **📆 Latest Update**
-- **Last Updated**: March 25, 2025
+## 📆 Latest Update
+
+**Last Updated:** June 23, 2025
 
 ---
 
-## **💬 Feedback & Contributions**
-Your feedback is invaluable! If you encounter issues or have suggestions for improvements, feel free to:
-1. Open an issue in this repository.
-2. Submit a pull request with your proposed changes.
+## 💬 Feedback & Contributions
 
+Your feedback is welcome! If you encounter issues or have suggestions:
